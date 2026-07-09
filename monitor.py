@@ -44,7 +44,14 @@ def require_env(name: str) -> str:
 
 def gql(query: str, variables: dict = None, token: str = None) -> dict:
     """Vykoná GraphQL POST požiadavku a vráti dáta."""
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+        "Origin": "https://smeny.cz",
+        "Referer": "https://smeny.cz/",
+        "Accept-Language": "sk,cs;q=0.9,en-US;q=0.8,en;q=0.7",
+    }
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
