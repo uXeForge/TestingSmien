@@ -281,7 +281,11 @@ def main():
     username  = require_env("SMENY_USERNAME")
     password  = require_env("SMENY_PASSWORD")
     bot_token = require_env("TELEGRAM_BOT_TOKEN")
-    chat_id   = require_env("TELEGRAM_CHAT_ID")
+    chat_id_env = require_env("TELEGRAM_CHAT_ID")
+
+    # Rozdelíme IDčka podľa čiarky (podpora pre viacero príjemcov)
+    chat_ids = [cid.strip() for cid in chat_id_env.split(",") if cid.strip()]
+    print(f"[OK]  Počet nakonfigurovaných príjemcov: {len(chat_ids)}")
 
     # 1. Prihlásenie
     print("\n[1/4] Prihlasujem sa na smeny.cz...")
@@ -356,7 +360,9 @@ def main():
     if new_shifts:
         for shift in new_shifts:
             msg = format_message(shift)
-            send_telegram(bot_token, chat_id, msg)
+            for cid in chat_ids:
+                print(f"Odosielam správu pre Chat ID: {cid}...")
+                send_telegram(bot_token, cid, msg)
             if DEBUG:
                 print("[DEBUG] Správa:\n", msg)
     else:
