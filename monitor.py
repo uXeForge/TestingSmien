@@ -122,28 +122,33 @@ def login(username: str, password: str) -> tuple[str, dict]:
 #   - "ATTEND" = zamestnanec sa môže prihlásiť / obsadiť smenu
 
 SHIFTS_QUERY = """
-query ShiftsCalendar($filter: UserShiftsFilter) {
+query ShiftsCalendar($filter: UserShiftPlanningShiftsAvailableFilter) {
     me {
-        shifts(filter: $filter) {
-            id
-            since
-            till
-            timeLabel
-            note
-            borrow
-            workplace {
-                id
-                name
-            }
-            position {
-                name
-            }
-            user {
-                id
-                fullName
-            }
-            assignment {
-                userActions
+        shiftPlanning {
+            shifts {
+                available(filter: $filter) {
+                    id
+                    since
+                    till
+                    timeLabel
+                    note
+                    borrow
+                    workplace {
+                        id
+                        name
+                    }
+                    position {
+                        id
+                        name
+                    }
+                    user {
+                        id
+                        fullName
+                    }
+                    assignment {
+                        userActions
+                    }
+                }
             }
         }
     }
@@ -167,20 +172,19 @@ def get_available_shifts(token: str) -> list[dict]:
             "since": {
                 "greaterThanOrEqual": since_str,
                 "lessThanOrEqual":    till_str,
-            },
-            "includeScheduleShifts": {"is": True},
+            }
         }
     })
 
-    all_shifts = data.get("me", {}).get("shifts", [])
-    print(f"[OK] Celkom smien v rozvrhu: {len(all_shifts)}")
+    all_shifts = data.get("me", {}).get("shiftPlanning", {}).get("shifts", {}).get("available", [])
+    print(f"[OK] Celkom voľných smien v rozvrhu (pred filtrami): {len(all_shifts)}")
 
     # Voľná smena = ATTEND je v userActions
     open_shifts = [
         s for s in all_shifts
         if "ATTEND" in (s.get("assignment") or {}).get("userActions", [])
     ]
-    print(f"[OK] Voľných smien (ATTEND): {len(open_shifts)}")
+    print(f"[OK] Voľných smien s akciou ATTEND: {len(open_shifts)}")
     return open_shifts
 
 
@@ -330,11 +334,10 @@ def main():
                     "since": {
                         "greaterThanOrEqual": since_str,
                         "lessThanOrEqual":    till_str,
-                    },
-                    "includeScheduleShifts": {"is": True},
+                    }
                 }
             })
-            all_s = data.get("me", {}).get("shifts", [])
+            all_s = data.get("me", {}).get("shiftPlanning", {}).get("shifts", {}).get("available", [])
             if all_s:
                 mock_shift = dict(all_s[0])
                 # Zmeníme ID na náhodné, aby prešlo filtrom novosti
