@@ -1,0 +1,10 @@
+# Ignorované súbory s heslami a tokenmi
+TEST_START.txt
+run_test.cmd
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/

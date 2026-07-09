@@ -1,6 +1,0 @@
-$env:SMENY_USERNAME="zakovakika@gmail.com"
-$env:SMENY_PASSWORD="DHLD181818"
-$env:TELEGRAM_BOT_TOKEN="8765779374:AAHst-JuNkJdE0mrr2WFZOT9z1JW6Z9KPC"
-$env:TELEGRAM_CHAT_ID="8933335367"
-$env:DEBUG="true"
-python monitor.py
