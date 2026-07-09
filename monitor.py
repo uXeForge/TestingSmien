@@ -20,6 +20,7 @@ Ako detekujeme voľnú smenu:
 import os
 import json
 import sys
+import time
 import requests
 from datetime import datetime, timezone, timedelta
 
@@ -287,21 +288,48 @@ def send_telegram(bot_token: str, chat_id: str, text: str) -> bool:
 
 # ─── Hlavná logika ───────────────────────────────────────────────────────────
 
-def main():
+def get_slovak_hour() -> int:
+    """Vráti aktuálnu hodinu v slovenskom časovom pásme (vyrieši posun na GitHube)."""
+    utc_now = datetime.now(timezone.utc)
+    is_github = "GITHUB_ACTIONS" in os.environ
+    if is_github:
+        # GitHub servery bežia v UTC. V lete je na Slovensku UTC+2
+        slovak_time = utc_now + timedelta(hours=2)
+        return slovak_time.hour
+    else:
+        # Domáci PC alebo virtuálka beží v lokálnom slovenskom čase
+        return datetime.now().hour
+
+
+def run_once(username, password, bot_token, chat_ids):
+    # ─── Tichý režim (nočný kľud) ───
+    try:
+        quiet_start = int(CONFIG.get("QUIET_START_HOUR") or os.environ.get("QUIET_START_HOUR", 22))
+        quiet_end   = int(CONFIG.get("QUIET_END_HOUR")   or os.environ.get("QUIET_END_HOUR", 7))
+    except ValueError:
+        quiet_start, quiet_end = 22, 7
+
+    current_hour = get_slovak_hour()
+    is_quiet = False
+
+    if quiet_start > quiet_end:
+        # Prechádza cez polnoc (napr. od 22 do 7)
+        if current_hour >= quiet_start or current_hour < quiet_end:
+            is_quiet = True
+    else:
+        # V rámci jedného dňa (napr. od 0 do 6)
+        if quiet_start <= current_hour < quiet_end:
+            is_quiet = True
+
+    if is_quiet:
+        print(f"[TICHÝ REŽIM] Aktuálne je {current_hour}:00. Kontrola je v čase {quiet_start}:00 - {quiet_end}:00 vypnutá pre nočný kľud.")
+        return
+
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"{'='*55}")
-    print(f"  Smeny.cz Monitor  –  {ts}")
+    print(f"  Smeny.cz Monitor Run – {ts}")
     print(f"  Horizont: {DAYS_AHEAD} dní dopredu")
     print(f"{'='*55}")
-
-    username  = require_env("SMENY_USERNAME")
-    password  = require_env("SMENY_PASSWORD")
-    bot_token = require_env("TELEGRAM_BOT_TOKEN")
-    chat_id_env = require_env("TELEGRAM_CHAT_ID")
-
-    # Rozdelíme IDčka podľa čiarky (podpora pre viacero príjemcov)
-    chat_ids = [cid.strip() for cid in chat_id_env.split(",") if cid.strip()]
-    print(f"[OK]  Počet nakonfigurovaných príjemcov: {len(chat_ids)}")
 
     # 1. Prihlásenie
     print("\n[1/4] Prihlasujem sa na smeny.cz...")
@@ -311,7 +339,7 @@ def main():
         print(f"[OK]  Prihlásený ako: {name} ({user.get('email', '')})")
     except Exception as e:
         print(f"[CHYBA] Prihlásenie zlyhalo: {e}")
-        sys.exit(1)
+        return
 
     # 2. Načítanie voľných smien
     print("\n[2/4] Načítavam voľné smeny (ATTEND v userActions)...")
@@ -319,7 +347,7 @@ def main():
         open_shifts = get_available_shifts(token)
     except Exception as e:
         print(f"[CHYBA] Načítanie smien zlyhalo: {e}")
-        sys.exit(1)
+        return
 
     # 2.5 Simulácia pre TEST_SEND
     if os.environ.get("TEST_SEND", "").lower() in ("1", "true", "yes"):
@@ -391,6 +419,35 @@ def main():
     print(f"\n{'='*55}")
     print(f"  Hotovo. Nových notifikácií: {len(new_shifts)}")
     print(f"{'='*55}\n")
+
+
+def main():
+    username  = require_env("SMENY_USERNAME")
+    password  = require_env("SMENY_PASSWORD")
+    bot_token = require_env("TELEGRAM_BOT_TOKEN")
+    chat_id_env = require_env("TELEGRAM_CHAT_ID")
+
+    # Rozdelíme IDčka podľa čiarky (podpora pre viacero príjemcov)
+    chat_ids = [cid.strip() for cid in chat_id_env.split(",") if cid.strip()]
+    print(f"[OK]  Počet nakonfigurovaných príjemcov: {len(chat_ids)}")
+
+    # Prečítame loop interval z konfigurácie alebo premenných (predvolene 0 = bez slučky)
+    try:
+        loop_interval = int(CONFIG.get("LOOP_INTERVAL") or os.environ.get("LOOP_INTERVAL", 0))
+    except ValueError:
+        loop_interval = 0
+
+    if loop_interval > 0:
+        print(f"[LOOP] Spúšťam v nekonečnej slučke s intervalom {loop_interval} sekúnd.")
+        while True:
+            try:
+                run_once(username, password, bot_token, chat_ids)
+            except Exception as e:
+                print(f"[LOOP] Neočakávaná chyba pri behu: {e}")
+            print(f"[LOOP] Čakám {loop_interval} sekúnd pred ďalšou kontrolou...\n")
+            time.sleep(loop_interval)
+    else:
+        run_once(username, password, bot_token, chat_ids)
 
 
 if __name__ == "__main__":
