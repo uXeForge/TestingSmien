@@ -32,10 +32,22 @@ DAYS_AHEAD   = 30
 DEBUG        = os.environ.get("DEBUG", "").lower() in ("1", "true", "yes")
 
 
+# Globálna konfigurácia zo súboru (voliteľná pre domáci server)
+CONFIG = {}
+if os.path.exists("config.json"):
+    try:
+        with open("config.json", "r", encoding="utf-8") as f:
+            CONFIG = json.load(f)
+        print("[OK] Načítaná konfigurácia z config.json")
+    except Exception as e:
+        print(f"[VAROVANIE] Nepodarilo sa načítať config.json: {e}")
+
+
 def require_env(name: str) -> str:
-    value = os.environ.get(name)
+    # Skúsime najprv config.json, potom premenné prostredia
+    value = CONFIG.get(name) or os.environ.get(name)
     if not value:
-        print(f"[CHYBA] Chýba premenná prostredia: {name}")
+        print(f"[CHYBA] Chýba konfigurácia pre: {name} (nastav v config.json alebo ako premennú prostredia)")
         sys.exit(1)
     return value
 

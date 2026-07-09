@@ -1,6 +1,7 @@
 # Ignorované súbory s heslami a tokenmi
 TEST_START.txt
 run_test.cmd
+config.json
 
 # Python cache
 __pycache__/
