@@ -12,6 +12,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+      test_send:
+        description: 'Zapnúť TEST_SEND (Simulovať voľnú smenu na test)'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   monitor:
@@ -47,6 +52,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
           DEBUG:              ${{ inputs.debug || 'false' }}
+          TEST_SEND:          ${{ inputs.test_send || 'false' }}
         run: python monitor.py
 
       # 5. Ulož stav (commitni known_shifts.json ak sa zmenil)
