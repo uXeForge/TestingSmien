@@ -301,6 +301,50 @@ def main():
         print(f"[CHYBA] Načítanie smien zlyhalo: {e}")
         sys.exit(1)
 
+    # 2.5 Simulácia pre TEST_SEND
+    if os.environ.get("TEST_SEND", "").lower() in ("1", "true", "yes"):
+        print("\n[TEST] Aktivovaný TEST_SEND režim. Simulujem voľnú smenu...")
+        # Skúsime nájsť akúkoľvek smenu a spraviť z nej "voľnú" na test
+        now = datetime.now(timezone.utc)
+        since_str = now.strftime("%Y-%m-%dT00:00:00+00:00")
+        till_str = (now + timedelta(days=30)).strftime("%Y-%m-%dT23:59:59+00:00")
+        try:
+            data = gql(SHIFTS_QUERY, token=token, variables={
+                "filter": {
+                    "since": {
+                        "greaterThanOrEqual": since_str,
+                        "lessThanOrEqual":    till_str,
+                    },
+                    "includeScheduleShifts": {"is": True},
+                }
+            })
+            all_s = data.get("me", {}).get("shifts", [])
+            if all_s:
+                mock_shift = dict(all_s[0])
+                # Zmeníme ID na náhodné, aby prešlo filtrom novosti
+                mock_shift["id"] = f"test-mock-{int(now.timestamp())}"
+                mock_shift["note"] = "TOTO JE TESTOVACIA NOTIFIKÁCIA (Simulovaný beh)"
+                # Priradíme akciu ATTEND, aby to prešlo formátovaním
+                mock_shift["assignment"] = {"userActions": ["ATTEND"]}
+                open_shifts = [mock_shift]
+                print(f"[TEST] Simulujem reálnu smenu premenenú na voľnú (ID: {mock_shift['id']})")
+            else:
+                raise ValueError("Žiadne smeny")
+        except Exception:
+            print("[TEST] Žiadna reálna smena nenájdená. Vytváram kompletne fiktívnu smenu pre test.")
+            mock_shift = {
+                "id": f"test-mock-fake-{int(now.timestamp())}",
+                "since": now.isoformat(),
+                "till": (now + timedelta(hours=8)).isoformat(),
+                "timeLabel": "Ranná",
+                "note": "Úplne fiktívna smena pre test notifikácií",
+                "borrow": False,
+                "workplace": {"name": "Nitra (Test)"},
+                "position": {"name": "Výpomoc SI"},
+                "assignment": {"userActions": ["ATTEND"]}
+            }
+            open_shifts = [mock_shift]
+
     # 3. Porovnanie so stavom
     print("\n[3/4] Porovnávam so stavom...")
     known_ids  = load_known_ids()
