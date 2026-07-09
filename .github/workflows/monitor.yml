@@ -1,0 +1,60 @@
+name: 🔔 Smeny.cz – Monitor voľných smien
+
+on:
+  schedule:
+    # Každých 5 minút (GitHub Actions minimum)
+    - cron: '*/5 * * * *'
+  # Umožní ručné spustenie cez GitHub UI (tlačidlo "Run workflow")
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: 'Zapnúť DEBUG výstup'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  monitor:
+    name: Kontrola smien
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # Potrebné na commitovanie known_shifts.json
+
+    steps:
+      # 1. Stiahni repozitár (vrátane known_shifts.json so stavom)
+      - name: 📥 Checkout repozitára
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. Nastav Python
+      - name: 🐍 Nastavenie Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      # 3. Nainštaluj závislosti
+      - name: 📦 Inštalácia závislostí
+        run: pip install -r requirements.txt
+
+      # 4. Spusti monitor
+      - name: 🔍 Spustenie monitora
+        env:
+          SMENY_USERNAME:     ${{ secrets.SMENY_USERNAME }}
+          SMENY_PASSWORD:     ${{ secrets.SMENY_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          DEBUG:              ${{ inputs.debug || 'false' }}
+        run: python monitor.py
+
+      # 5. Ulož stav (commitni known_shifts.json ak sa zmenil)
+      - name: 💾 Uloženie stavu
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add known_shifts.json
+          # Commitni iba ak sa niečo zmenilo; [skip ci] zabraňuje loop-u
+          git diff --staged --quiet || git commit -m "chore: aktualizácia stavu smien [skip ci]"
+          git push
